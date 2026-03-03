@@ -24,7 +24,8 @@ public class TodoItemController : ControllerBase
         {
             Id = x.Id,
             Text = x.Text,
-            IsCompleted = x.IsCompleted
+            IsCompleted = x.IsCompleted,
+            IsDeleted = x.IsDeleted
         }).ToListAsync();
 
         return Ok(response);
@@ -32,20 +33,20 @@ public class TodoItemController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoItemResponse>> GetTodoItem(long id)
     {
-        var todoItem = await _context.TodoItem.FindAsync(id);
+        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoItem == null)
         {
             return NotFound();
         }
 
-        return Ok(new TodoItemResponse { Text = todoItem.Text, IsCompleted = todoItem.IsCompleted, Id = todoItem.Id});
+        return Ok(new TodoItemResponse { Text = todoItem.Text, IsCompleted = todoItem.IsCompleted, Id = todoItem.Id, IsDeleted = todoItem.IsDeleted });
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult> PutTodoItem(long id, UpdateTodoItem payload)
     {
-        var todoItem = await _context.TodoItem.FindAsync(id);
+        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoItem == null)
         {
@@ -67,7 +68,7 @@ public class TodoItemController : ControllerBase
         _context.TodoItem.Add(newItem);
         await _context.SaveChangesAsync();
 
-        var response = new TodoItemResponse { Text = newItem.Text, Id = newItem.Id, IsCompleted = newItem.IsCompleted };
+        var response = new TodoItemResponse { Text = newItem.Text, Id = newItem.Id, IsCompleted = newItem.IsCompleted, IsDeleted = newItem.IsDeleted };
 
         return CreatedAtAction(nameof(GetTodoItem), new { id = newItem.Id }, response);
     }
@@ -75,13 +76,13 @@ public class TodoItemController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteTodoItem(long id)
     {
-        var todoItem = await _context.TodoItem.FindAsync(id);
+        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id);
         if (todoItem == null)
         {
             return NotFound();
         }
 
-        _context.TodoItem.Remove(todoItem);
+        todoItem.IsDeleted = true;
         await _context.SaveChangesAsync();
 
         return NoContent();

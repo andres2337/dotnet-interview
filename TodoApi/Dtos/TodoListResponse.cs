@@ -1,6 +1,6 @@
-namespace TodoApi.Models;
+namespace TodoApi.Dtos;
 
-public class TodoList
+public class TodoListResponse
 {
     public long Id { get; set; }
     public required string Name { get; set; }
