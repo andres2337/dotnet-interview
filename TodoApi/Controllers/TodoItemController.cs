@@ -18,7 +18,7 @@ public class TodoItemController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IList<TodoItemResponse>>> GetTodoLists()
+    public async Task<ActionResult<IList<TodoItemResponse>>> GetTodoItems()
     {
         var response = await _context.TodoItem.AsNoTracking().Select(x => new TodoItemResponse
         {
@@ -60,14 +60,16 @@ public class TodoItemController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<TodoItemResponse>> PostTodoList(CreateTodoItem payload)
+    public async Task<ActionResult<TodoItemResponse>> PostTodoItem(CreateTodoItem payload)
     {
         var newItem = new TodoItem { Text = payload.Text, TodoListId = payload.TodoListId, IsCompleted = false };
 
         _context.TodoItem.Add(newItem);
         await _context.SaveChangesAsync();
 
-        return Created("", new TodoItem { Text = newItem.Text, Id = newItem.Id, IsCompleted = newItem.IsCompleted, TodoListId = newItem.TodoListId});
+        var response = new TodoItemResponse { Text = newItem.Text, Id = newItem.Id, IsCompleted = newItem.IsCompleted };
+
+        return CreatedAtAction(nameof(GetTodoItem), new { id = newItem.Id }, response);
     }
 
     [HttpDelete("{id}")]
