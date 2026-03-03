@@ -18,30 +18,37 @@ public class TodoListsController : ControllerBase
 
     // GET: api/todolists
     [HttpGet]
-    public async Task<ActionResult<IList<TodoList>>> GetTodoLists()
+    public async Task<ActionResult<IList<TodoListResponse>>> GetTodoLists()
     {
-        return Ok(await _context.TodoList.AsNoTracking().ToListAsync());
+        var response = await _context.TodoList.AsNoTracking().Select(x => new TodoListResponse
+        {
+            Id = x.Id,
+            Name = x.Name,
+            IsDeleted = x.IsDeleted
+        }).ToListAsync();
+
+        return Ok(response);
     }
 
     // GET: api/todolists/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<TodoList>> GetTodoList(long id)
+    public async Task<ActionResult<TodoListResponse>> GetTodoList(long id)
     {
-        var todoList = await _context.TodoList.FindAsync(id);
+        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoList == null)
         {
             return NotFound();
         }
 
-        return Ok(todoList);
+        return Ok(new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted });
     }
 
     // PUT: api/todolists/5
     [HttpPut("{id}")]
     public async Task<ActionResult> PutTodoList(long id, UpdateTodoList payload)
     {
-        var todoList = await _context.TodoList.FindAsync(id);
+        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoList == null)
         {
@@ -51,32 +58,34 @@ public class TodoListsController : ControllerBase
         todoList.Name = payload.Name;
         await _context.SaveChangesAsync();
 
-        return Ok(todoList);
+        return Ok(new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted });
     }
 
     // POST: api/todolists
     [HttpPost]
-    public async Task<ActionResult<TodoList>> PostTodoList(CreateTodoList payload)
+    public async Task<ActionResult<TodoListResponse>> PostTodoList(CreateTodoList payload)
     {
         var todoList = new TodoList { Name = payload.Name };
 
         _context.TodoList.Add(todoList);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetTodoList), new { id = todoList.Id }, todoList);
+        var response = new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted };
+
+        return CreatedAtAction(nameof(GetTodoList), new { id = todoList.Id }, response);
     }
 
     // DELETE: api/todolists/5
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteTodoList(long id)
     {
-        var todoList = await _context.TodoList.FindAsync(id);
+        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
         if (todoList == null)
         {
             return NotFound();
         }
 
-        _context.TodoList.Remove(todoList);
+        todoList.IsDeleted = true;
         await _context.SaveChangesAsync();
 
         return NoContent();

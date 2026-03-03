@@ -119,7 +119,7 @@ public class TodoListsControllerTests
             var result = await controller.DeleteTodoList(2);
 
             Assert.IsType<NoContentResult>(result);
-            Assert.Equal(1, context.TodoList.Count());
+            Assert.True(context.TodoList.First(t => t.Id == 2).IsDeleted);
         }
     }
 }
