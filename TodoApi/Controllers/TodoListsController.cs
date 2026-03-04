@@ -20,9 +20,7 @@ public class TodoListsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IList<TodoListResponse>>> GetTodoLists()
     {
-        var response = await _context.TodoList.AsNoTracking()
-            .Where(x => !x.IsDeleted)
-            .Select(x => new TodoListResponse
+        var response = await _context.TodoList.AsNoTracking().Select(x => new TodoListResponse
         {
             Id = x.Id,
             Name = x.Name,
@@ -36,7 +34,7 @@ public class TodoListsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoListResponse>> GetTodoList(long id)
     {
-        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoList == null)
         {
@@ -50,7 +48,7 @@ public class TodoListsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult> PutTodoList(long id, UpdateTodoList payload)
     {
-        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoList == null)
         {
@@ -81,7 +79,7 @@ public class TodoListsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteTodoList(long id)
     {
-        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
+        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
         if (todoList == null)
         {
             return NotFound();
