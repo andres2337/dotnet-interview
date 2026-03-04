@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TodoApi.Dtos;
+using TodoApi.Dtos.TodoList;
 using TodoApi.Models;
 
 namespace TodoApi.Controllers;
@@ -63,6 +63,7 @@ public class TodoListsController : ControllerBase
         }
 
         todoList.Name = payload.Name;
+        todoList.IsDeleted = payload.IsDeleted;
         await _context.SaveChangesAsync();
 
         return Ok(new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted });
