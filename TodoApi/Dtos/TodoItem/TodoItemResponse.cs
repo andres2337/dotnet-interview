@@ -6,4 +6,5 @@ public class TodoItemResponse
     public bool IsCompleted { get; set; }
     public required string Text { get; set; }
     public bool IsDeleted { get; set; }
+    public long TodoListId { get; set; }
 }

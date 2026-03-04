@@ -32,7 +32,8 @@ public class TodoItemController : ControllerBase
             Id = x.Id,
             Text = x.Text,
             IsCompleted = x.IsCompleted,
-            IsDeleted = x.IsDeleted
+            IsDeleted = x.IsDeleted,
+            TodoListId = x.TodoListId
         }).ToListAsync();
 
         return Ok(response);
@@ -48,7 +49,7 @@ public class TodoItemController : ControllerBase
             return NotFound();
         }
 
-        return Ok(new TodoItemResponse { Text = todoItem.Text, IsCompleted = todoItem.IsCompleted, Id = todoItem.Id, IsDeleted = todoItem.IsDeleted });
+        return Ok(new TodoItemResponse { Text = todoItem.Text, IsCompleted = todoItem.IsCompleted, Id = todoItem.Id, IsDeleted = todoItem.IsDeleted, TodoListId = todoItem.TodoListId });
     }
 
     [HttpPut("{id}")]
@@ -85,7 +86,7 @@ public class TodoItemController : ControllerBase
         _context.TodoItem.Add(newItem);
         await _context.SaveChangesAsync();
 
-        var response = new TodoItemResponse { Text = newItem.Text, Id = newItem.Id, IsCompleted = newItem.IsCompleted, IsDeleted = newItem.IsDeleted };
+        var response = new TodoItemResponse { Text = newItem.Text, Id = newItem.Id, IsCompleted = newItem.IsCompleted, IsDeleted = newItem.IsDeleted, TodoListId = newItem.TodoListId };
 
         return CreatedAtAction(nameof(GetTodoItem), new { id = newItem.Id }, response);
     }
