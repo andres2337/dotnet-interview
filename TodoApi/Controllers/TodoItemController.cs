@@ -63,6 +63,7 @@ public class TodoItemController : ControllerBase
 
         todoItem.Text = payload.Text;
         todoItem.IsCompleted = payload.IsCompleted;
+        todoItem.IsDeleted = payload.IsDeleted;
         await _context.SaveChangesAsync();
 
         return Ok();

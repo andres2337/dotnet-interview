@@ -1,4 +1,4 @@
-namespace TodoApi.Dtos;
+namespace TodoApi.Dtos.TodoList;
 
 public class TodoListResponse
 {

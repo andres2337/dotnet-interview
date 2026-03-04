@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace TodoApi.Dtos;
+namespace TodoApi.Dtos.TodoList;
 
 public class CreateTodoList
 {
