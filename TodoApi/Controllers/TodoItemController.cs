@@ -20,20 +20,22 @@ public class TodoItemController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IList<TodoItemResponse>>> GetTodoItems()
     {
-        var response = await _context.TodoItem.AsNoTracking().Select(x => new TodoItemResponse
-        {
-            Id = x.Id,
-            Text = x.Text,
-            IsCompleted = x.IsCompleted,
-            IsDeleted = x.IsDeleted
-        }).ToListAsync();
+        var response = await _context.TodoItem.AsNoTracking()
+            .Where(x => !x.IsDeleted)
+            .Select(x => new TodoItemResponse
+            {
+                Id = x.Id,
+                Text = x.Text,
+                IsCompleted = x.IsCompleted,
+                IsDeleted = x.IsDeleted
+            }).ToListAsync();
 
         return Ok(response);
     }
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoItemResponse>> GetTodoItem(long id)
     {
-        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id);
+        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
 
         if (todoItem == null)
         {
@@ -46,7 +48,7 @@ public class TodoItemController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult> PutTodoItem(long id, UpdateTodoItem payload)
     {
-        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id);
+        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
 
         if (todoItem == null)
         {
@@ -63,6 +65,14 @@ public class TodoItemController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TodoItemResponse>> PostTodoItem(CreateTodoItem payload)
     {
+        var todoListExists = await _context.TodoList
+            .AnyAsync(l => l.Id == payload.TodoListId && !l.IsDeleted);
+
+        if (!todoListExists)
+        {
+            return BadRequest(new { error = "The specified list does not exist or has been deleted." });
+        }
+
         var newItem = new TodoItem { Text = payload.Text, TodoListId = payload.TodoListId, IsCompleted = false };
 
         _context.TodoItem.Add(newItem);
@@ -76,7 +86,7 @@ public class TodoItemController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteTodoItem(long id)
     {
-        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id);
+        var todoItem = await _context.TodoItem.FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted);
         if (todoItem == null)
         {
             return NotFound();
