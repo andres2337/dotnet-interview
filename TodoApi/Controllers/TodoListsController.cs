@@ -98,4 +98,20 @@ public class TodoListsController : ControllerBase
 
         return NoContent();
     }
+
+    // POST: api/todolists/5/complete-all
+    [HttpPost("{id}/complete-all")]
+    public async Task<ActionResult> CompleteAllItems(long id)
+    {
+        if (!await _context.TodoList.AnyAsync(t => t.Id == id))
+        {
+            return NotFound();
+        }
+
+        var updatedCount = await _context.TodoItem
+            .Where(i => i.TodoListId == id && !i.IsDeleted && !i.IsCompleted)
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.IsCompleted, true));
+
+        return Ok(new { UpdatedCount = updatedCount });
+    }
 }
