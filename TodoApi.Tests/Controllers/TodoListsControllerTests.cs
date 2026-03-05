@@ -186,4 +186,81 @@ public class TodoListsControllerTests
             Assert.True(context.TodoList.First(t => t.Id == 2).IsDeleted);
         }
     }
+
+    [Fact]
+    public async Task CompleteAllItems_WhenCalled_MarksAllItemsAsCompleted()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            PopulateDatabaseContext(context);
+            context.TodoItem.Add(new TodoItem { Id = 1, Text = "Item 1", IsCompleted = false, TodoListId = 1 });
+            context.TodoItem.Add(new TodoItem { Id = 2, Text = "Item 2", IsCompleted = false, TodoListId = 1 });
+            context.TodoItem.Add(new TodoItem { Id = 3, Text = "Item 3", IsCompleted = true, TodoListId = 1 });
+            context.SaveChanges();
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.CompleteAllItems(1);
+
+            Assert.IsType<OkObjectResult>(result);
+
+            var dbItems = await context.TodoItem.Where(i => i.TodoListId == 1).ToListAsync();
+            Assert.Equal(3, dbItems.Count);
+            Assert.All(dbItems, i => Assert.True(i.IsCompleted));
+        }
+    }
+
+    [Fact]
+    public async Task CompleteAllItems_WhenTodoListDoesntExist_ReturnsNotFound()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            PopulateDatabaseContext(context);
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.CompleteAllItems(999);
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+    }
+
+    [Fact]
+    public async Task CompleteAllItems_WhenNoItems_ReturnsOkWithZeroUpdated()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            PopulateDatabaseContext(context);
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.CompleteAllItems(1);
+
+            Assert.IsType<OkObjectResult>(result);
+        }
+    }
+
+    [Fact]
+    public async Task CompleteAllItems_SkipsDeletedItems()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            PopulateDatabaseContext(context);
+            context.TodoItem.Add(new TodoItem { Id = 1, Text = "Active", IsCompleted = false, IsDeleted = false, TodoListId = 1 });
+            context.TodoItem.Add(new TodoItem { Id = 2, Text = "Deleted", IsCompleted = false, IsDeleted = true, TodoListId = 1 });
+            context.SaveChanges();
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.CompleteAllItems(1);
+
+            Assert.IsType<OkObjectResult>(result);
+
+            var activeItem = await context.TodoItem.FirstAsync(i => i.Id == 1);
+            Assert.True(activeItem.IsCompleted);
+
+            var deletedItem = await context.TodoItem.FirstAsync(i => i.Id == 2);
+            Assert.False(deletedItem.IsCompleted);
+        }
+    }
 }
