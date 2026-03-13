@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Dtos.TodoList;
+using TodoApi.Enums;
 using TodoApi.Models;
 
 namespace TodoApi.Controllers;
@@ -16,46 +17,46 @@ public class TodoListsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/todolists
     [HttpGet]
     public async Task<ActionResult<IList<TodoListResponse>>> GetTodoLists([FromQuery] bool includeDeleted = false)
     {
-        var query = _context.TodoList.AsNoTracking();
+        var query = _context.TodoList
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .AsQueryable();
 
         if (!includeDeleted)
         {
             query = query.Where(x => !x.IsDeleted);
         }
 
-        var response = await query.Select(x => new TodoListResponse
-        {
-            Id = x.Id,
-            Name = x.Name,
-            IsDeleted = x.IsDeleted
-        }).ToListAsync();
+        var todoLists = await query
+            .OrderBy(x => x.Id)
+            .ToListAsync();
 
-        return Ok(response);
+        return Ok(todoLists.Select(x => x.ToResponse()).ToList());
     }
 
-    // GET: api/todolists/5
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoListResponse>> GetTodoList(long id)
     {
-        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
+        var todoList = await _context.TodoList
+            .AsNoTracking()
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoList == null)
         {
             return NotFound();
         }
 
-        return Ok(new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted });
+        return Ok(todoList.ToResponse());
     }
 
-    // PUT: api/todolists/5
     [HttpPut("{id}")]
     public async Task<ActionResult> PutTodoList(long id, UpdateTodoList payload)
     {
-        var todoList = await _context.TodoList.FirstOrDefaultAsync(t => t.Id == id);
+        var todoList = await _context.TodoList.Include(x => x.Items).FirstOrDefaultAsync(t => t.Id == id);
 
         if (todoList == null)
         {
@@ -64,26 +65,30 @@ public class TodoListsController : ControllerBase
 
         todoList.Name = payload.Name;
         todoList.IsDeleted = payload.IsDeleted;
+        todoList.LastModifiedAtUtc = DateTime.UtcNow;
+        todoList.SyncStatus = todoList.ExternalId.HasValue ? (payload.IsDeleted ? SyncStatus.PendingDelete : SyncStatus.PendingUpdate) : SyncStatus.PendingCreate;
+
         await _context.SaveChangesAsync();
 
-        return Ok(new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted });
+        return Ok(todoList.ToResponse());
     }
 
-    // POST: api/todolists
     [HttpPost]
     public async Task<ActionResult<TodoListResponse>> PostTodoList(CreateTodoList payload)
     {
-        var todoList = new TodoList { Name = payload.Name };
+        var todoList = new TodoList
+        {
+            Name = payload.Name,
+            SyncStatus = SyncStatus.PendingCreate,
+            LastModifiedAtUtc = DateTime.UtcNow,
+        };
 
         _context.TodoList.Add(todoList);
         await _context.SaveChangesAsync();
 
-        var response = new TodoListResponse { Id = todoList.Id, Name = todoList.Name, IsDeleted = todoList.IsDeleted };
-
-        return CreatedAtAction(nameof(GetTodoList), new { id = todoList.Id }, response);
+        return CreatedAtAction(nameof(GetTodoList), new { id = todoList.Id }, todoList.ToResponse());
     }
 
-    // DELETE: api/todolists/5
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteTodoList(long id)
     {
@@ -94,24 +99,32 @@ public class TodoListsController : ControllerBase
         }
 
         todoList.IsDeleted = true;
+        todoList.LastModifiedAtUtc = DateTime.UtcNow;
+        todoList.SyncStatus = todoList.ExternalId.HasValue ? SyncStatus.PendingDelete : SyncStatus.PendingCreate;
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
-    // POST: api/todolists/5/complete-all
     [HttpPost("{id}/complete-all")]
     public async Task<ActionResult> CompleteAllItems(long id)
     {
-        if (!await _context.TodoList.AnyAsync(t => t.Id == id))
+        var todoList = await _context.TodoList.Include(x => x.Items).FirstOrDefaultAsync(t => t.Id == id);
+        if (todoList == null)
         {
             return NotFound();
         }
 
-        var updatedCount = await _context.TodoItem
-            .Where(i => i.TodoListId == id && !i.IsDeleted && !i.IsCompleted)
-            .ExecuteUpdateAsync(s => s.SetProperty(i => i.IsCompleted, true));
+        var activeItems = todoList.Items.Where(i => !i.IsDeleted && !i.IsCompleted).ToList();
+        foreach (var item in activeItems)
+        {
+            item.IsCompleted = true;
+            item.LastModifiedAtUtc = DateTime.UtcNow;
+            item.SyncStatus = item.ExternalId.HasValue ? SyncStatus.PendingUpdate : SyncStatus.PendingCreate;
+        }
 
-        return Ok(new { UpdatedCount = updatedCount });
+        await _context.SaveChangesAsync();
+
+        return Ok(new { UpdatedCount = activeItems.Count });
     }
 }

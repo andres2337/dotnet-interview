@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Controllers;
 using TodoApi.Dtos.TodoItem;
+using TodoApi.Enums;
 using TodoApi.Models;
 
 namespace TodoApi.Tests;
@@ -111,7 +112,7 @@ public class TodoItemControllerTests
                 IsDeleted = false
             });
 
-            Assert.IsType<OkResult>(result);
+            Assert.IsType<OkObjectResult>(result);
 
             var updated = await context.TodoItem.FirstAsync(t => t.Id == 1);
             Assert.Equal("Updated Item 1", updated.Text);
@@ -201,6 +202,46 @@ public class TodoItemControllerTests
     }
 
     [Fact]
+    public async Task DeleteTodoItem_WhenItemHasNoExternalId_KeepsItResolvedLocally()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            context.TodoList.Add(new TodoList
+            {
+                Id = 10,
+                Name = "Linked List",
+                ExternalId = 400,
+                SyncStatus = SyncStatus.Synced
+            });
+
+            context.TodoItem.Add(new TodoItem
+            {
+                Id = 20,
+                Text = "Draft Item",
+                TodoListId = 10,
+                IsDeleted = false,
+                SyncStatus = SyncStatus.PendingCreate
+            });
+
+            await context.SaveChangesAsync();
+
+            var controller = new TodoItemController(context);
+
+            var result = await controller.DeleteTodoItem(20);
+
+            Assert.IsType<NoContentResult>(result);
+
+            var deleted = await context.TodoItem.FirstAsync(t => t.Id == 20);
+            var parentList = await context.TodoList.FirstAsync(t => t.Id == 10);
+
+            Assert.True(deleted.IsDeleted);
+            Assert.Equal(SyncStatus.Synced, deleted.SyncStatus);
+            Assert.Null(deleted.LastSyncError);
+            Assert.Equal(SyncStatus.Synced, parentList.SyncStatus);
+        }
+    }
+
+    [Fact]
     public async Task DeleteTodoItem_WhenItemDoesntExist_ReturnsNotFound()
     {
         using (var context = new TodoContext(DatabaseContextOptions()))
@@ -215,3 +256,7 @@ public class TodoItemControllerTests
         }
     }
 }
+
+
+
+
