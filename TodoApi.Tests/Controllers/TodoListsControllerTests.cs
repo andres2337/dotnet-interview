@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Controllers;
 using TodoApi.Dtos.TodoList;
+using TodoApi.Enums;
 using TodoApi.Models;
 
 namespace TodoApi.Tests;
@@ -261,6 +262,76 @@ public class TodoListsControllerTests
 
             var deletedItem = await context.TodoItem.FirstAsync(i => i.Id == 2);
             Assert.False(deletedItem.IsCompleted);
+        }
+    }
+
+    [Fact]
+    public async Task DeleteTodoList_WhenTodoListDoesntExist_ReturnsNotFound()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            PopulateDatabaseContext(context);
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.DeleteTodoList(999);
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+    }
+
+    [Fact]
+    public async Task DeleteTodoList_WhenHasExternalId_SetsSyncStatusToPendingDelete()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            context.TodoList.Add(new TodoList { Id = 10, Name = "Synced", ExternalId = 500, SyncStatus = SyncStatus.Synced });
+            await context.SaveChangesAsync();
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.DeleteTodoList(10);
+
+            Assert.IsType<NoContentResult>(result);
+
+            var deleted = await context.TodoList.FirstAsync(t => t.Id == 10);
+            Assert.True(deleted.IsDeleted);
+            Assert.Equal(SyncStatus.PendingDelete, deleted.SyncStatus);
+        }
+    }
+
+    [Fact]
+    public async Task PostTodoList_WhenCalled_SetsSyncStatusToPendingCreate()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            var controller = new TodoListsController(context);
+
+            var result = await controller.PostTodoList(new CreateTodoList { Name = "New List" });
+
+            Assert.IsType<CreatedAtActionResult>(result.Result);
+
+            var created = await context.TodoList.FirstAsync();
+            Assert.Equal(SyncStatus.PendingCreate, created.SyncStatus);
+        }
+    }
+
+    [Fact]
+    public async Task PutTodoList_WhenHasExternalId_SetsSyncStatusToPendingUpdate()
+    {
+        using (var context = new TodoContext(DatabaseContextOptions()))
+        {
+            context.TodoList.Add(new TodoList { Id = 10, Name = "Synced", ExternalId = 500, SyncStatus = SyncStatus.Synced });
+            await context.SaveChangesAsync();
+
+            var controller = new TodoListsController(context);
+
+            var result = await controller.PutTodoList(10, new UpdateTodoList { Name = "Updated", IsDeleted = false });
+
+            Assert.IsType<OkObjectResult>(result);
+
+            var updated = await context.TodoList.FirstAsync(t => t.Id == 10);
+            Assert.Equal(SyncStatus.PendingUpdate, updated.SyncStatus);
         }
     }
 }

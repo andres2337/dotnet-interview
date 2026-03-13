@@ -117,13 +117,30 @@ public class TodoListsController : ControllerBase
 
         var now = DateTime.UtcNow;
 
-        var updatedCount = await _context.TodoItem
-            .Where(i => i.TodoListId == id && !i.IsDeleted && !i.IsCompleted)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(i => i.IsCompleted, true)
-                .SetProperty(i => i.LastModifiedAtUtc, now)
-                .SetProperty(i => i.SyncStatus, i => i.ExternalId.HasValue ? SyncStatus.PendingUpdate : SyncStatus.PendingCreate));
+        //  var items = await _context.TodoItem
+        //    .Where(i => i.TodoListId == id && !i.IsDeleted && !i.IsCompleted)
+        //    .ExecuteUpdateAsync(s => s
+        //        .SetProperty(i => i.IsCompleted, true)
+        //        .SetProperty(i => i.LastModifiedAtUtc, now)
+        //        .SetProperty(i => i.SyncStatus, i => i.ExternalId.HasValue ? SyncStatus.PendingUpdate : SyncStatus.PendingCreate));
+        //
+        // el código anterior, si bien es mejor que el actual, se tuvo que reemplazar por el foreach,
+        // ya que el proveedor InMemory no soporta las condiciones de expresion como el operador ternario
+        // lo cual generaba que el test para este endpoint fallara
 
-        return Ok(new { UpdatedCount = updatedCount });
+        var items = await _context.TodoItem
+            .Where(i => i.TodoListId == id && !i.IsDeleted && !i.IsCompleted)
+            .ToListAsync();
+
+        foreach (var item in items)
+        {
+            item.IsCompleted = true;
+            item.LastModifiedAtUtc = now;
+            item.SyncStatus = item.ExternalId.HasValue ? SyncStatus.PendingUpdate : SyncStatus.PendingCreate;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { UpdatedCount = items.Count });
     }
 }
