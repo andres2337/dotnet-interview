@@ -109,22 +109,21 @@ public class TodoListsController : ControllerBase
     [HttpPost("{id}/complete-all")]
     public async Task<ActionResult> CompleteAllItems(long id)
     {
-        var todoList = await _context.TodoList.Include(x => x.Items).FirstOrDefaultAsync(t => t.Id == id);
-        if (todoList == null)
+        var todoListExists = await _context.TodoList.AnyAsync(t => t.Id == id);
+        if (!todoListExists)
         {
             return NotFound();
         }
 
-        var activeItems = todoList.Items.Where(i => !i.IsDeleted && !i.IsCompleted).ToList();
-        foreach (var item in activeItems)
-        {
-            item.IsCompleted = true;
-            item.LastModifiedAtUtc = DateTime.UtcNow;
-            item.SyncStatus = item.ExternalId.HasValue ? SyncStatus.PendingUpdate : SyncStatus.PendingCreate;
-        }
+        var now = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        var updatedCount = await _context.TodoItem
+            .Where(i => i.TodoListId == id && !i.IsDeleted && !i.IsCompleted)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.IsCompleted, true)
+                .SetProperty(i => i.LastModifiedAtUtc, now)
+                .SetProperty(i => i.SyncStatus, i => i.ExternalId.HasValue ? SyncStatus.PendingUpdate : SyncStatus.PendingCreate));
 
-        return Ok(new { UpdatedCount = activeItems.Count });
+        return Ok(new { UpdatedCount = updatedCount });
     }
 }
