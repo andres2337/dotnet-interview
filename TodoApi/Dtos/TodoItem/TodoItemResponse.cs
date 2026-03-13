@@ -1,4 +1,6 @@
-﻿namespace TodoApi.Dtos.TodoItem;
+using TodoApi.Dtos.Sync;
+
+namespace TodoApi.Dtos.TodoItem;
 
 public class TodoItemResponse
 {
@@ -7,4 +9,5 @@ public class TodoItemResponse
     public required string Text { get; set; }
     public bool IsDeleted { get; set; }
     public long TodoListId { get; set; }
+    public required SyncMetadataResponse Sync { get; set; }
 }
